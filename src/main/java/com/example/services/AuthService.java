@@ -1,9 +1,9 @@
 package com.example.services;
 
-import com.example.models.User;
-import com.example.models.Student;
-import com.example.models.Instructor;
 import com.example.database.JsonDatabaseManager;
+import com.example.models.Instructor;
+import com.example.models.Student;
+import com.example.models.User;
 
 import java.security.MessageDigest;
 import java.util.List;

@@ -1,9 +1,9 @@
 package com.example.ui;
 
+import com.example.database.JsonDatabaseManager;
 import com.example.models.Course;
 import com.example.models.Instructor;
 import com.example.services.CourseService;
-import com.example.database.JsonDatabaseManager;
 
 import javax.swing.*;
 import java.awt.*;

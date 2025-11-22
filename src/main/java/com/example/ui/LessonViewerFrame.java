@@ -1,8 +1,8 @@
 package com.example.ui;
 
+import com.example.models.Course;
 import com.example.models.Lesson;
 import com.example.models.Student;
-import com.example.models.Course;
 import com.example.services.CourseService;
 
 import javax.swing.*;
@@ -42,6 +42,12 @@ public class LessonViewerFrame extends JFrame {
 
         add(mainPanel);
         setVisible(true);
+        if(lesson.getQuiz() != null){
+            JButton quizBtn = new JButton("Take Quiz");
+            quizBtn.addActionListener(e -> new QuizFrame(lesson.getQuiz(), student, lesson, course, dashboard));
+            mainPanel.add(quizBtn, BorderLayout.NORTH);
+        }
+
     }
 
     private void markCompleted(){
