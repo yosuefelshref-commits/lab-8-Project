@@ -26,6 +26,7 @@ public class Student extends User {
         this.completedLessonIds = new ArrayList<>();
     }
 
+    // ==== Courses ====
     public List<Course> getEnrolledCourses() {
         List<Course> courses = new ArrayList<>();
         for(Integer id : enrolledCourseIds){
@@ -44,6 +45,7 @@ public class Student extends User {
         }
     }
 
+    // ==== Lessons ====
     public boolean markLessonCompleted(Course course, Lesson lesson){
         if(lesson != null && !completedLessonIds.contains(lesson.getLessonId())){
             completedLessonIds.add(lesson.getLessonId());
@@ -62,10 +64,12 @@ public class Student extends User {
         return (int)((completed * 100)/lessons.size());
     }
 
-    public List<Integer> getEnrolledCourseIds() { return enrolledCourseIds; }
-    public void setEnrolledCourseIds(List<Integer> enrolledCourseIds) { this.enrolledCourseIds = enrolledCourseIds != null ? enrolledCourseIds : new ArrayList<>(); }
-    public List<Integer> getCompletedLessonIds() { return completedLessonIds; }
-    public void setCompletedLessonIds(List<Integer> completedLessonIds) { this.completedLessonIds = completedLessonIds != null ? completedLessonIds : new ArrayList<>(); }
+    public boolean hasCompletedLesson(Lesson lesson){
+        if(lesson == null || completedLessonIds == null) return false;
+        return completedLessonIds.contains(lesson.getLessonId());
+    }
+
+    // ==== Quiz Scores ====
     public void saveQuizScore(int lessonId, int score) {
         quizScores.put(lessonId, score);
     }
@@ -78,6 +82,19 @@ public class Student extends User {
     public void setQuizScores(Map<Integer, Integer> quizScores) {
         this.quizScores = quizScores != null ? quizScores : new HashMap<>();
     }
+
+    // ==== Certificates ====
     public List<Certificate> getCertificates() { return certificates; }
     public void addCertificate(Certificate c) { certificates.add(c); }
+
+    // ==== Getters & Setters ====
+    public List<Integer> getEnrolledCourseIds() { return enrolledCourseIds; }
+    public void setEnrolledCourseIds(List<Integer> enrolledCourseIds) {
+        this.enrolledCourseIds = enrolledCourseIds != null ? enrolledCourseIds : new ArrayList<>();
+    }
+
+    public List<Integer> getCompletedLessonIds() { return completedLessonIds; }
+    public void setCompletedLessonIds(List<Integer> completedLessonIds) {
+        this.completedLessonIds = completedLessonIds != null ? completedLessonIds : new ArrayList<>();
+    }
 }

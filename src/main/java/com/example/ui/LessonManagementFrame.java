@@ -7,7 +7,6 @@ import com.example.services.CourseService;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.List;
 
 public class LessonManagementFrame extends JFrame {
     private Course course;

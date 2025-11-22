@@ -1,7 +1,7 @@
 package com.example.ui;
 
-import com.example.models.Instructor;
 import com.example.models.Course;
+import com.example.models.Instructor;
 import com.example.services.CourseService;
 
 import javax.swing.*;

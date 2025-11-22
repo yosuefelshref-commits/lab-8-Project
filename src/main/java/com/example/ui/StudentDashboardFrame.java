@@ -2,11 +2,15 @@ package com.example.ui;
 
 import com.example.models.*;
 import com.example.services.CourseService;
+import com.example.database.JsonDatabaseManager;
+import com.example.utils.CertificateGenerator;
 
 import javax.swing.*;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 
 public class StudentDashboardFrame extends JFrame {
@@ -15,8 +19,10 @@ public class StudentDashboardFrame extends JFrame {
 
     private JTable availableTable;
     private JTable enrolledTable;
+    private JTable certificateTable;
     private DefaultTableModel availableModel;
     private DefaultTableModel enrolledModel;
+    private DefaultTableModel certificateModel;
     private JTextField searchField;
 
     public StudentDashboardFrame(Student student) {
@@ -35,14 +41,15 @@ public class StudentDashboardFrame extends JFrame {
 
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.addActionListener(e -> {
-            dispose();
-            new LoginFrame();
+            dispose(); // اغلاق الـ Dashboard الحالي
+            new LoginFrame(); // فتح Login Frame جديد
         });
         topPanel.add(logoutBtn, BorderLayout.EAST);
+
         add(topPanel, BorderLayout.NORTH);
 
-        // Available Courses
-        JPanel availablePanel = new JPanel(new BorderLayout(10, 10));
+        // ================= Available Courses =================
+        JPanel availablePanel = new JPanel(new BorderLayout(10,10));
         searchField = new JTextField();
         searchField.setToolTipText("Search courses...");
         availablePanel.add(searchField, BorderLayout.NORTH);
@@ -52,85 +59,131 @@ public class StudentDashboardFrame extends JFrame {
             public boolean isCellEditable(int row, int column) { return column == 3; }
         };
         availableTable = new JTable(availableModel);
-        availableTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
-        availableTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), "Enroll", courseId -> {
-            if(courseId == -1) return;
-            Course c = courseService.getCourseById(courseId);
-            if(c != null) student.enrollCourse(c);
-            refreshEnrolledCourses();
-            refreshAvailableCourses();
-        }));
         availablePanel.add(new JScrollPane(availableTable), BorderLayout.CENTER);
         tabbedPane.add("Available Courses", availablePanel);
 
-        // Enrolled Courses
+        // ================= Enrolled Courses =================
         JPanel enrolledPanel = new JPanel(new BorderLayout(10,10));
         String[] enrolledCols = {"ID", "Title", "Instructor", "Progress", "Action"};
         enrolledModel = new DefaultTableModel(enrolledCols, 0) {
             public boolean isCellEditable(int row, int column) { return column == 4; }
         };
         enrolledTable = new JTable(enrolledModel);
-        enrolledTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
-        enrolledTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), "View", courseId -> {
-            if(courseId == -1) return;
-            Course c = courseService.getCourseById(courseId);
-            if(c != null) new LessonListFrame(student, c, this);
-        }));
         enrolledTable.getColumn("Progress").setCellRenderer(new ProgressRenderer());
         enrolledPanel.add(new JScrollPane(enrolledTable), BorderLayout.CENTER);
         tabbedPane.add("Enrolled Courses", enrolledPanel);
 
+        // ================= Certificates =================
+        JPanel certPanel = new JPanel(new BorderLayout(10,10));
+        String[] certCols = {"Certificate ID", "Course Title", "Issue Date", "Action"};
+        certificateModel = new DefaultTableModel(certCols, 0) {
+            public boolean isCellEditable(int row, int column) { return column == 3; }
+        };
+        certificateTable = new JTable(certificateModel);
+        certPanel.add(new JScrollPane(certificateTable), BorderLayout.CENTER);
+        tabbedPane.add("Certificates", certPanel);
+
         add(tabbedPane, BorderLayout.CENTER);
         setVisible(true);
 
-        // Search functionality
+        // ================= Search =================
         searchField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
                 refreshAvailableCourses(searchField.getText());
             }
         });
 
+        // أول ما نفتح الإطار، نضيف البيانات
         refreshAvailableCourses();
         refreshEnrolledCourses();
+        refreshCertificates();
     }
 
+    // ================= Refresh Tables =================
     public void refreshAvailableCourses() { refreshAvailableCourses(""); }
 
-    private void refreshAvailableCourses(String filter){
+    private void refreshAvailableCourses(String filter) {
         availableModel.setRowCount(0);
         List<Course> courses = courseService.getAvailableCourses(student);
+        if(courses == null || courses.isEmpty()) return;
+
         for(Course c : courses){
             if(filter.isEmpty() || c.getTitle().toLowerCase().contains(filter.toLowerCase())){
-                String instName = (c.getInstructor()!=null) ? c.getInstructor().getUsername() : "Unknown";
+                String instName = (c.getInstructor() != null) ? c.getInstructor().getUsername() : "Unknown";
                 availableModel.addRow(new Object[]{c.getCourseId(), c.getTitle(), instName, "Enroll"});
             }
         }
-        ((AbstractTableModel)availableTable.getModel()).fireTableDataChanged();
-    }
 
-    public void refreshEnrolledCourses(){
-        enrolledModel.setRowCount(0);
-        for(Course c : student.getEnrolledCourses()){
-            String instName = (c.getInstructor()!=null) ? c.getInstructor().getUsername() : "Unknown";
-            enrolledModel.addRow(new Object[]{c.getCourseId(), c.getTitle(), instName, student.getProgress(c), "View"});
+        if(availableTable.getRowCount() > 0){
+            availableTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
+            availableTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), "Enroll", courseId -> {
+                if(courseId == -1) return;
+                Course c = courseService.getCourseById(courseId);
+                if(c != null) student.enrollCourse(c);
+                refreshEnrolledCourses();
+                refreshAvailableCourses();
+                courseService.saveCourses();
+            }));
         }
-        ((AbstractTableModel)enrolledTable.getModel()).fireTableDataChanged();
     }
 
-    // ====== Renderers ======
+    public void refreshEnrolledCourses() {
+        enrolledModel.setRowCount(0);
+        List<Course> courses = student.getEnrolledCourses();
+        if(courses == null || courses.isEmpty()) return;
+
+        for(Course c : courses){
+            int progress = student.getProgress(c);
+            String instName = (c.getInstructor() != null) ? c.getInstructor().getUsername() : "Unknown";
+            enrolledModel.addRow(new Object[]{c.getCourseId(), c.getTitle(), instName, progress, "View"});
+        }
+
+        if(enrolledTable.getRowCount() > 0){
+            enrolledTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
+            enrolledTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), "View", courseId -> {
+                if(courseId == -1) return;
+                Course c = courseService.getCourseById(courseId);
+                if(c != null) new LessonListFrame(student, c, this);
+            }));
+        }
+    }
+
+    public void refreshCertificates() {
+        certificateModel.setRowCount(0);
+        List<Certificate> certs = student.getCertificates();
+        if(certs == null || certs.isEmpty()) return;
+
+        for(Certificate cert : certs){
+            Course c = courseService.getCourseById(cert.getCourseId());
+            String courseTitle = (c != null) ? c.getTitle() : "Unknown";
+            certificateModel.addRow(new Object[]{cert.getCertificateId(), courseTitle, cert.getIssueDate(), "View/Download"});
+        }
+
+        if(certificateTable.getRowCount() > 0){
+            certificateTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
+            certificateTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), "View/Download", row -> {
+                if(row == -1) return;
+                Certificate cert = student.getCertificates().get(row);
+                Course c = courseService.getCourseById(cert.getCourseId());
+                CertificateGenerator.generatePDF(cert, student, c);
+            }));
+        }
+    }
+
+    // ================= Renderers & Editors =================
     class ButtonRenderer extends JButton implements TableCellRenderer {
         public ButtonRenderer() { setOpaque(true); }
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column){
-            setText((value==null)?"":value.toString());
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            setText((value == null) ? "" : value.toString());
             return this;
         }
     }
 
-    interface ButtonAction { void action(int courseId); }
+    interface ButtonAction { void action(int value); }
 
     class ButtonEditor extends DefaultCellEditor {
         protected JButton button;
-        private int courseId;
+        private int value;
         private boolean clicked;
         private ButtonAction action;
 
@@ -141,20 +194,21 @@ public class StudentDashboardFrame extends JFrame {
             this.action = action;
 
             button.addActionListener(e -> {
-                if(clicked && courseId != -1){
-                    action.action(courseId);
-                }
+                if(!clicked) return;
                 fireEditingStopped();
             });
         }
 
         @Override
-        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column){
+        public Component getTableCellEditorComponent(JTable table, Object valueObj, boolean isSelected, int row, int column){
+            value = -1;
             if(row >= 0 && row < table.getRowCount()){
-                Object idObj = table.getValueAt(row,0);
-                courseId = (idObj instanceof Integer) ? (Integer) idObj : -1;
-            } else {
-                courseId = -1;
+                Object idObj = table.getValueAt(row, 0);
+                if(idObj instanceof Integer){
+                    value = (Integer) idObj;
+                } else if(idObj instanceof String) {
+                    value = row; // للشهادات نرسل رقم الصف
+                }
             }
             clicked = true;
             return button;
@@ -162,16 +216,30 @@ public class StudentDashboardFrame extends JFrame {
 
         @Override
         public Object getCellEditorValue(){
+            if(clicked && value != -1){
+                try {
+                    action.action(value);
+                } catch(Exception e){
+                    JOptionPane.showMessageDialog(null, "Error executing action: " + e.getMessage());
+                }
+            }
             clicked = false;
             return "";
+        }
+
+        @Override
+        public boolean stopCellEditing() {
+            clicked = false;
+            return super.stopCellEditing();
         }
     }
 
     class ProgressRenderer extends JProgressBar implements TableCellRenderer {
-        public ProgressRenderer(){ setStringPainted(true); }
+        public ProgressRenderer() { setStringPainted(true); }
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column){
-            int val = (value instanceof Integer)? (Integer)value : 0;
-            setValue(val); setString(val + "%");
+            int val = (value instanceof Integer) ? (Integer)value : 0;
+            setValue(val);
+            setString(val + "%");
             return this;
         }
     }

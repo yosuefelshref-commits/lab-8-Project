@@ -35,7 +35,6 @@ public class Lesson {
         this.resources = (resources != null) ? resources : new ArrayList<>();
     }
 
-    // ==== Resources ====
     public void addResource(String resource){
         if(resource != null){
             if(resources == null) resources = new ArrayList<>();
@@ -59,4 +58,10 @@ public class Lesson {
     public void setContent(String content) { this.content = (content != null) ? content : this.content; }
 
     public static void setLessonCounter(int value) { lessonCounter = value; }
+
+    // ==== Insights ====
+    public double getQuizAverage() {
+        if (quiz == null) return 0;
+        return quiz.getAverageScore();
+    }
 }

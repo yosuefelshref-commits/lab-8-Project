@@ -35,6 +35,7 @@ public class Course {
         this.enrolledStudents = new ArrayList<>();
     }
 
+
     public void setCourseId(int id){
         this.courseId = id;
         if(id >= courseCounter)
@@ -109,6 +110,7 @@ public class Course {
             }
         }
     }
+
     public CourseStatus getStatus() { return status; }
     public void setStatus(CourseStatus status) { this.status = status; }
 

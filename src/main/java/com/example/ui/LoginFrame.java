@@ -1,8 +1,8 @@
 package com.example.ui;
 
-import com.example.models.User;
-import com.example.models.Student;
 import com.example.models.Instructor;
+import com.example.models.Student;
+import com.example.models.User;
 import com.example.services.AuthService;
 
 import javax.swing.*;

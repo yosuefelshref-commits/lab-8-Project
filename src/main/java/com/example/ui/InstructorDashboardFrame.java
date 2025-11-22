@@ -22,7 +22,7 @@ public class InstructorDashboardFrame extends JFrame {
         this.courseService = CourseService.getInstance();
 
         setTitle("Instructor Dashboard");
-        setSize(1000, 600);
+        setSize(1100, 600);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -51,9 +51,9 @@ public class InstructorDashboardFrame extends JFrame {
         mainPanel.add(searchField, BorderLayout.NORTH);
 
         // ================= Table =================
-        String[] columns = {"ID","Title","Students","Manage Lessons","View Students"};
+        String[] columns = {"ID","Title","Students","Manage Lessons","View Students","Insights"};
         tableModel = new DefaultTableModel(columns,0){
-            public boolean isCellEditable(int row,int column){ return column>=3; }
+            public boolean isCellEditable(int row,int column){ return column >= 3; }
         };
         courseTable = new JTable(tableModel);
 
@@ -81,6 +81,15 @@ public class InstructorDashboardFrame extends JFrame {
                         sb.length()>0?sb.toString():"No students enrolled yet.",
                         "Enrolled Students for " + c.getTitle(),
                         JOptionPane.INFORMATION_MESSAGE);
+            }
+        }));
+
+        // Insights Button
+        courseTable.getColumn("Insights").setCellRenderer(new ButtonRenderer());
+        courseTable.getColumn("Insights").setCellEditor(new ButtonEditor("Insights", courseId->{
+            Course c = courseService.getCourseById(courseId);
+            if(c != null){
+                new ChartFrame(c); // يفتح نافذة الرسوم البيانية
             }
         }));
 
@@ -144,7 +153,8 @@ public class InstructorDashboardFrame extends JFrame {
                         c.getTitle(),
                         c.getEnrolledStudents()!=null?c.getEnrolledStudents().size():0,
                         "Manage Lessons",
-                        "View Students"
+                        "View Students",
+                        "Insights" // زر جديد
                 });
             }
         }
