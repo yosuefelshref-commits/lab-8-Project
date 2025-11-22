@@ -1,8 +1,9 @@
 package com.example.models;
 
+import com.example.database.JsonDatabaseManager;
+
 import java.util.ArrayList;
 import java.util.List;
-import com.example.database.JsonDatabaseManager;
 
 public class Course {
     private static int courseCounter = 1;
@@ -10,118 +11,104 @@ public class Course {
     private int courseId;
     private String title;
     private String description;
-
-    // persisted link to instructor
+    private Instructor instructor;
     private String instructorEmail;
-
-    // lessons are objects inside course
-    private List<Lesson> lessons = new ArrayList<>();
-
-    // store student IDs in JSON to avoid circular refs
-    private List<Integer> enrolledStudentIds = new ArrayList<>();
-
-    // transient cached object (not serialized)
-    private transient Instructor instructor;
-
+    private List<Lesson> lessons;
+    private List<Student> enrolledStudents;
     private CourseStatus status = CourseStatus.PENDING;
     private Integer approvedByAdminId = null;
     private String rejectionReason = null;
 
-    public Course() { this.courseId = courseCounter++; }
+    // ======== مهم جداً لـ GSON ========
+    public Course() {
+        this.courseId = courseCounter++;
+        this.lessons = new ArrayList<>();
+        this.enrolledStudents = new ArrayList<>();
+    }
 
     public Course(String title, String description, Instructor instructor){
         this.courseId = courseCounter++;
-        this.title = title != null ? title : "Untitled Course";
-        this.description = description != null ? description : "";
+        this.title = (title != null) ? title : "Untitled Course";
+        this.description = (description != null) ? description : "";
         setInstructor(instructor);
+        this.lessons = new ArrayList<>();
+        this.enrolledStudents = new ArrayList<>();
     }
 
-    public int getCourseId() { return courseId; }
     public void setCourseId(int id){
         this.courseId = id;
-        if(id >= courseCounter) courseCounter = id + 1;
+        if(id >= courseCounter)
+            courseCounter = id + 1;   // ★ يمنع تكرار الـ IDs
     }
 
-    public String getTitle(){ return title; }
-    public void setTitle(String title){ this.title = title != null ? title : this.title; }
+    public void setInstructorEmail(String email){
+        this.instructorEmail = email;
+    }
 
-    public String getDescription(){ return description; }
-    public void setDescription(String desc){ this.description = desc != null ? desc : this.description; }
+    public void setTitle(String title){
+        this.title = (title != null) ? title : this.title;
+    }
 
-    public String getInstructorEmail(){ return instructorEmail; }
-    public void setInstructorEmail(String email){ this.instructorEmail = email; }
+    public void setDescription(String description){
+        this.description = (description != null) ? description : this.description;
+    }
 
-    // ===== Instructor convenience (used by UI) =====
-    public Instructor getInstructor(){
+    public void setLessons(List<Lesson> lessons){
+        this.lessons = (lessons != null) ? lessons : new ArrayList<>();
+    }
+
+    public void setEnrolledStudents(List<Student> students){
+        this.enrolledStudents = (students != null) ? students : new ArrayList<>();
+    }
+
+    // ======== Instructor Handling ========
+    public void setInstructor(Instructor instructor){
+        this.instructor = instructor;
+        this.instructorEmail = (instructor != null) ? instructor.getEmail() : null;
+    }
+
+    public Instructor getInstructor() {
         if(this.instructor == null && instructorEmail != null){
-            for(User u : JsonDatabaseManager.getInstance().getUsers()){
-                if(u instanceof Instructor && u.getEmail().equals(instructorEmail)){
-                    this.instructor = (Instructor) u;
-                    break;
-                }
-            }
+            this.instructor = (Instructor) JsonDatabaseManager.getInstance()
+                    .getUsers().stream()
+                    .filter(u -> u instanceof Instructor && u.getEmail().equals(instructorEmail))
+                    .findFirst()
+                    .orElse(null);
         }
         return this.instructor;
     }
 
-    public void setInstructor(Instructor inst){
-        this.instructor = inst;
-        this.instructorEmail = (inst != null) ? inst.getEmail() : null;
-        // Also ensure instructor created-course ids list updated
-        if(inst != null){
-            inst.addCreatedCourse(this);
-            JsonDatabaseManager.getInstance().saveUsers();
+    public void addLesson(Lesson lesson){
+        if(lesson != null){
+            if(lessons == null) lessons = new ArrayList<>();
+            lessons.add(lesson);
         }
-        JsonDatabaseManager.getInstance().saveCourses();
     }
 
-    // ==== Lessons ====
-    public List<Lesson> getLessons(){ if(lessons==null) lessons = new ArrayList<>(); return lessons; }
-    public void setLessons(List<Lesson> lessons){ this.lessons = lessons != null ? lessons : new ArrayList<>(); }
-    public void addLesson(Lesson l){ if(l!=null) { getLessons().add(l); JsonDatabaseManager.getInstance().saveCourses(); } }
-    public void removeLesson(Lesson l){ if(l!=null && lessons!=null){ lessons.remove(l); JsonDatabaseManager.getInstance().saveCourses(); } }
+    public void removeLesson(Lesson lesson){
+        if(lesson != null && lessons != null){
+            lessons.remove(lesson);
+        }
+    }
 
-    // ==== Enrolled students: stored as IDs, but UI expects Student objects ====
-    public List<Integer> getEnrolledStudentIds(){ if(enrolledStudentIds==null) enrolledStudentIds = new ArrayList<>(); return enrolledStudentIds; }
-    public void setEnrolledStudentIds(List<Integer> ids){ this.enrolledStudentIds = ids != null ? ids : new ArrayList<>(); }
+    public List<Lesson> getLessons(){
+        if(lessons == null) lessons = new ArrayList<>();
+        return lessons;
+    }
 
-    // Return resolved Student objects (used by Instructor UI)
     public List<Student> getEnrolledStudents(){
-        List<Student> out = new ArrayList<>();
-        if(enrolledStudentIds == null) return out;
-        for(Integer sid : enrolledStudentIds){
-            for(User u : JsonDatabaseManager.getInstance().getUsers()){
-                if(u instanceof Student && u.getUserId() == sid){
-                    out.add((Student) u);
-                    break;
-                }
+        if(enrolledStudents == null) enrolledStudents = new ArrayList<>();
+        return enrolledStudents;
+    }
+
+    public void enrollStudent(Student student){
+        if(student != null){
+            if(enrolledStudents == null) enrolledStudents = new ArrayList<>();
+            if(!enrolledStudents.contains(student)){
+                enrolledStudents.add(student);
             }
         }
-        return out;
     }
-
-    // Enroll helpers keep IDs and persist
-    public void enrollStudentById(int studentId){
-        if(enrolledStudentIds == null) enrolledStudentIds = new ArrayList<>();
-        if(!enrolledStudentIds.contains(studentId)){
-            enrolledStudentIds.add(studentId);
-            JsonDatabaseManager.getInstance().saveCourses();
-        }
-    }
-
-    // convenience: enroll using Student object (keeps both sides consistent)
-    public void enrollStudent(Student s){
-        if(s == null) return;
-        enrollStudentById(s.getUserId());
-        // ensure student side knows too
-        if(!s.getEnrolledCourseIds().contains(this.courseId)){
-            s.getEnrolledCourseIds().add(this.courseId);
-            JsonDatabaseManager.getInstance().saveUsers();
-        }
-        JsonDatabaseManager.getInstance().saveCourses();
-    }
-
-    // status & audit
     public CourseStatus getStatus() { return status; }
     public void setStatus(CourseStatus status) { this.status = status; }
 
@@ -130,6 +117,11 @@ public class Course {
 
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String reason) { this.rejectionReason = reason; }
+
+    public int getCourseId(){ return courseId; }
+    public String getTitle(){ return title; }
+    public String getDescription(){ return description; }
+    public String getInstructorEmail(){ return instructorEmail; }
 
     public static void setCourseCounter(int value){ courseCounter = value; }
 }
